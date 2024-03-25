@@ -16,11 +16,26 @@ public class db {
         try {
             String url = "jdbc:postgresql://localhost:5432/bookStore";
             String username = "postgres";
-            String password = "123456789";
+            String password = "Hana.2002";
             connection = DriverManager.getConnection(url, username, password);
             System.out.println("Connected to the database.");
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+    public static int getUserIdByUsername(String username) {
+        int userId = -1;
+        try {
+            String query = "SELECT userid FROM users WHERE username = ?";
+            PreparedStatement preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setString(1, username);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            if (resultSet.next()) {
+                userId = resultSet.getInt("userid");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return userId;
     }
 }
