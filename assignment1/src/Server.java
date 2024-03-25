@@ -10,8 +10,10 @@ public class Server {
     private static  DataInputStream input = null;
     private static DataOutputStream out = null;
 
+    private static int userID ;
 
     public static void main(String[] args) throws IOException {
+
         System.out.println("Opening connection...\n");
         try{
             serverSocket=new ServerSocket(PORT);
@@ -26,9 +28,9 @@ public class Server {
             out.flush();
             System.out.println(choosedNum);
             if(choosedNum.contains("1")){
-                ValidateSignUP(data);
+                ValidateSignUp(input, out);
             }else if(choosedNum.contains("2")){
-                ValidateSignIn();
+                ValidateSignIn(input, out);
             }else if(choosedNum.contains("3")){
                 ValidateManageInventory(data);
             }else if(choosedNum.contains("4")){
@@ -58,24 +60,22 @@ public class Server {
 
     /////////////////////////////////////////////////////////////////////////////
 
-    static void ValidateSignUP(String[] registerInfo) throws IOException{
-        try{
+    static void ValidateSignUp(DataInputStream input, DataOutputStream out) throws IOException, SQLException {
+        try {
             Connection con=db.getConnection();
-
-            String name = registerInfo[1].replace("\0", "");
-            String userName = registerInfo[2].replace("\0", "");
-            String password = registerInfo[3].replace("\0", "");
-
-            //System.out.println("name: "+name+" usn: "+userName+" pas "+password);
+            String[] registerInfo = input.readUTF().split(":");
+            String name = registerInfo[0].replace("\0", "");
+            String userName = registerInfo[1].replace("\0", "");
+            String password = registerInfo[2].replace("\0", "");
             String query = "INSERT INTO users (name, username, password) VALUES (?, ?, ?)";
             PreparedStatement preparedStatement = con.prepareStatement(query);
             preparedStatement.setString(1, name);
             preparedStatement.setString(2, userName);
             preparedStatement.setString(3, password);
-            System.out.println("name: "+name+" ,usn: "+userName+" ,pas: "+password);
             int rowsAffected = preparedStatement.executeUpdate();
-
             if (rowsAffected > 0) {
+                userID=db.getUserIdByUsername(userName);
+                System.out.println(userID+" UserID");
                 out.writeUTF("Registration successful");
             } else {
                 out.writeUTF("Username already exists");
@@ -87,8 +87,38 @@ public class Server {
     }
 
     /////////////////////////////////////////////////////////////////////////////
-    static void ValidateSignIn(){
-
+    static void ValidateSignIn(DataInputStream input, DataOutputStream out) throws IOException, SQLException {
+        Connection con = null;
+        try {
+            con = db.getConnection();
+            String loginInfo = input.readUTF();
+            String[] loginParts = loginInfo.split(":");
+            if (loginParts.length == 2) {
+                String userName = loginParts[0];
+                String password = loginParts[1];
+                String query = "SELECT * FROM users WHERE username = ?";
+                PreparedStatement preparedStatement = con.prepareStatement(query);
+                preparedStatement.setString(1, userName);
+                ResultSet resultSet = preparedStatement.executeQuery();
+                if (resultSet.next()) {
+                    String storedPassword = resultSet.getString("password");
+                    if (password.equals(storedPassword)) {
+                        userID=db.getUserIdByUsername(userName);
+                        System.out.println(userID+" UserID");
+                        out.writeUTF("Login successful");
+                    } else {
+                        out.writeUTF("401 Unauthorized: Incorrect password");
+                    }
+                } else {
+                    out.writeUTF("404 Not Found: User not found");
+                }
+            } else {
+                out.writeUTF("400 Bad Request: Invalid login format");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            out.writeUTF("500 Internal Server Error");
+        }
     }
     /////////////////////////////////////////////////////////////////////////////
     static void ValidateManageInventory(String[] bookDetails) throws SQLException {
