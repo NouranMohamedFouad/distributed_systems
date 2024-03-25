@@ -15,12 +15,19 @@ public class Client {
             System.out.println("Choose an option: ");
             System.out.println("1. Register");
             System.out.println("2. Login");
+            System.out.println("3. Request Add Book");
+            System.out.println("4. Request Remove Book");
             int choice = Integer.parseInt(input.readLine());
             if (choice == 1) {
                 Register();
             } else if (choice == 2) {
                 Login();
-            } else {
+            } else if (choice==3) {
+                AddBook();
+            }else if(choice==4){
+                RemoveBook();
+            }
+            else{
                 System.out.println("Invalid choice");
             }
             socket.close();
@@ -56,11 +63,27 @@ public class Client {
     void BrowseBooks(){
 
     }
-    void AddBook(){
-
+    static void AddBook() throws IOException {
+        out.writeUTF("REQUEST_ADD_BOOK");
+        System.out.print("Enter book name: ");
+        String name = input.readLine();
+        System.out.print("Enter your id: ");
+        String clientID = input.readLine();
+        String Data="6:"+name +":" + clientID + ":lend";
+        out.writeUTF(Data);
+        String bookInfo = inputServer.readUTF();
+        System.out.println(bookInfo);
     }
-    void RemoveBook(){
-
+    static void RemoveBook() throws IOException {
+        out.writeUTF("REMOVE_BOOK");
+        System.out.print("Enter book name: ");
+        String bookName = input.readLine();
+        System.out.print("Enter your id: ");
+        String clientID = input.readLine();
+        String Data="7:"+bookName +":" + clientID + ":lend";
+        out.writeUTF(Data);
+        String bookRemovedInfo = inputServer.readUTF();
+        System.out.println(bookRemovedInfo);
     }
     void BorrowBook(){
 

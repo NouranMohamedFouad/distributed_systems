@@ -20,7 +20,6 @@ public class Server {
             clientHandler.start();
         }
     }
-
     static class ClientHandler implements Runnable {
         private final Socket clientSocket;
 
@@ -38,7 +37,17 @@ public class Server {
                     ValidateSignUp(input, out);
                 } else if (requestType.equals("LOGIN")) {
                     ValidateSignIn(input, out);
-                }
+
+//            } else if (requestType.equals("CHECK_BOOK")) {
+//                String[] bookDetails = input.readUTF().split(":");
+//                ValidateManageInventory(bookDetails);
+            } else if (requestType.equals("REMOVE_BOOK")) {
+                String[] requestDetails = input.readUTF().split(":");
+                ReuestRemoveBook(out,requestDetails);
+            } else if (requestType.equals("REQUEST_ADD_BOOK")) {
+                String[] requestDetails = input.readUTF().split(":");
+                RequestAddBook(out,requestDetails);
+            }
             } catch (IOException | SQLException e) {
                 e.printStackTrace();
             } finally {
@@ -113,13 +122,95 @@ public class Server {
             out.writeUTF("500 Internal Server Error");
         }
     }
+    static void ValidateManageInventory(String[] bookDetails) throws SQLException {
+        Connection con=db.getConnection();
+
+        String title=bookDetails[1].replace("\0", "");
+        String author=bookDetails[2].replace("\0", "");
+        String genre=bookDetails[3].replace("\0", "");
+        double price= Double.parseDouble(bookDetails[4].replace("\0", ""));
+        int quantity= Integer.parseInt(bookDetails[5].replace("\0", ""));
+        String query="INSERT INTO books (title,author,genre,price,quantity) VALUES (?, ?,?,?,?)";
+        PreparedStatement preparedStatement = con.prepareStatement(query);
+        preparedStatement.setString(1, title);
+        preparedStatement.setString(2, author);
+        preparedStatement.setString(3, genre);
+        preparedStatement.setDouble(4, price);
+        preparedStatement.setInt(5,quantity);
+
+        int rowsAffected = preparedStatement.executeUpdate();
+        if (rowsAffected > 0) {
+            System.out.println("book added successful");
+        } else {
+            System.out.println("error in adding the book");
+        }
+    }
     void getSearchedData(){
     }
-    void ReuestAddBook(){
+    static void RequestAddBook(DataOutputStream out,String[] requestDetails) throws SQLException, IOException {
+        Connection con=db.getConnection();
 
+        System.out.println("start");
+
+        String bookName = requestDetails[1].replace("\0", "");
+        int clientID = Integer.parseInt(requestDetails[2].replace("\0", ""));
+        String status = requestDetails[3].replace("\0", "");
+        String query1 = "SELECT bookid FROM books WHERE title=?";
+        PreparedStatement preparedStatement1 = con.prepareStatement(query1);
+        preparedStatement1.setString(1, bookName);
+        ResultSet res = preparedStatement1.executeQuery();
+
+        int bookID = -1; // Default value in case the book is not found
+        if (res.next()) {
+            bookID = res.getInt("bookid"); // Retrieve the ID from the ResultSet
+        } else {
+            // Handle the case where the book with the specified title is not found
+            out.writeUTF("Book with title '" + bookName + "' not found.");
+        }
+
+        String query="INSERT INTO client_books (clientid , bookid ,status) VALUES (?,?,?)";
+        PreparedStatement preparedStatement=con.prepareStatement(query);
+        preparedStatement.setInt(1,clientID);
+        preparedStatement.setInt(2,bookID);
+        preparedStatement.setString(3,status);
+
+        int rowsAffected = preparedStatement.executeUpdate();
+        if (rowsAffected > 0) {
+            out.writeUTF("client added book successful");
+        } else {
+            out.writeUTF("error in adding the book");
+        }
     }
-    void RequestRemoveBook(){
+    static void ReuestRemoveBook(DataOutputStream out,String[] requestDetails) throws SQLException, IOException {
+        Connection con=db.getConnection();
 
+        String bookName = requestDetails[1].replace("\0", "");
+        int clientID = Integer.parseInt(requestDetails[2].replace("\0", ""));
+        String status = requestDetails[3].replace("\0", "");
+        String query1 = "SELECT bookid FROM books WHERE title=?";
+        PreparedStatement preparedStatement1 = con.prepareStatement(query1);
+        preparedStatement1.setString(1, bookName);
+        ResultSet res = preparedStatement1.executeQuery();
+
+        int bookID = -1; // Default value in case the book is not found
+        if (res.next()){
+            bookID = res.getInt("bookid");
+        } else{
+            out.writeUTF("Book with title '" + bookName + "' not found.");
+        }
+
+        String query = "DELETE FROM client_books WHERE clientid =? AND bookid =? AND status =?";
+        PreparedStatement preparedStatement = con.prepareStatement(query);
+
+        preparedStatement.setInt(1, clientID);
+        preparedStatement.setInt(2, bookID);
+        preparedStatement.setString(3, status);
+        int rowsDeleted = preparedStatement.executeUpdate();
+        if(rowsDeleted > 0) {
+            System.out.println("book removed successfully");
+        }else{
+            System.out.println("you are not lending this book already");
+        }
     }
     void BorrowingRequest(){
         
