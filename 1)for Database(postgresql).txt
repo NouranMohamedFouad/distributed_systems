@@ -14,7 +14,7 @@ DATABASE SETUP
        . click on files ,then on project structure,then choose libraries and add the driver
    g)to import the Schema:
        . open pgAdmin
-       . click on servers,then type password(not to be forgotten),right click on databases ,then create database 
+       . click on servers,then type password(not to be forgotten),right click on databases ,then click create database 
        . download schema in a folder
        . open terminal where the folder exist and write this command
          psql -U username -d database_name -f schema.sql
