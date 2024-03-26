@@ -1,0 +1,22 @@
+DATABASE SETUP
+
+
+1)for Database:(postgresql)
+   a)open https://www.enterprisedb.com/downloads/postgres-postgresql-downloads 
+   b)choose your OS and version 16.2
+   c)finish the setup
+   d)In Stack Builder: 
+       . choose postgresql
+       . then choose pgJDBC v42.7.2-1
+       . put PostgreSQL\16\bin in environment variables
+   e)open https://www.enterprisedb.com/postgresql-tutorial-resources-training-2?uuid=d732dc13-c15a-484b-b783-307823940a11&campaignId=Product_Trial_PostgreSQL_16   and will download postgress driver automatically
+   f)add the driver in intellij(or any IDE)
+       . click on files ,then on project structure,then choose libraries and add the driver
+   g)to import the Schema:
+       . open pgAdmin
+       . click on servers,then type password(not to be forgotten),right click on databases ,then create database 
+       . download schema in a folder
+       . open terminal where the folder exist and write this command
+         psql -U username -d database_name -f schema.sql
+       . return to pgAdmin and will find all the tables 
+
