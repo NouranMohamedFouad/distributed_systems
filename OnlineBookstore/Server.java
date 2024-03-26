@@ -20,7 +20,6 @@ public class Server {
             clientHandler.start();
         }
     }
-
     static class ClientHandler implements Runnable {
         private final Socket clientSocket;
 
@@ -38,6 +37,19 @@ public class Server {
                     ValidateSignUp(input, out);
                 } else if (requestType.equals("LOGIN")) {
                     ValidateSignIn(input, out);
+
+//            } else if (requestType.equals("CHECK_BOOK")) {
+//                String[] bookDetails = input.readUTF().split(":");
+//                ValidateManageInventory(bookDetails);
+            } else if (requestType.equals("REMOVE_BOOK")) {
+                String[] requestDetails = input.readUTF().split(":");
+                RequestRemoveBook(out,requestDetails);
+            } else if (requestType.equals("REQUEST_ADD_BOOK")) {
+                String[] requestDetails = input.readUTF().split(":");
+                RequestAddBook(out,requestDetails);
+            }else if (requestType.equals("REQUEST_ADD_REVIEW")){
+                    String[] requestDetails = input.readUTF().split(":");
+                    AddReview(out,requestDetails);
                 }
             } catch (IOException | SQLException e) {
                 e.printStackTrace();
@@ -113,14 +125,153 @@ public class Server {
             out.writeUTF("500 Internal Server Error");
         }
     }
+    static void ValidateManageInventory(String[] bookDetails) throws SQLException {
+        Connection con=db.getConnection();
+
+        String title=bookDetails[1].replace("\0", "");
+        String author=bookDetails[2].replace("\0", "");
+        String genre=bookDetails[3].replace("\0", "");
+        double price= Double.parseDouble(bookDetails[4].replace("\0", ""));
+        int quantity= Integer.parseInt(bookDetails[5].replace("\0", ""));
+        String query="INSERT INTO books (title,author,genre,price,quantity) VALUES (?, ?,?,?,?)";
+        PreparedStatement preparedStatement = con.prepareStatement(query);
+        preparedStatement.setString(1, title);
+        preparedStatement.setString(2, author);
+        preparedStatement.setString(3, genre);
+        preparedStatement.setDouble(4, price);
+        preparedStatement.setInt(5,quantity);
+
+        int rowsAffected = preparedStatement.executeUpdate();
+        if (rowsAffected > 0) {
+            System.out.println("book added successful");
+        } else {
+            System.out.println("error in adding the book");
+        }
+    }
     void getSearchedData(){
     }
-    void ReuestAddBook(){
+    static void RequestAddBook(DataOutputStream out, String[] requestDetails) throws SQLException, IOException {
+        Connection con = db.getConnection();
 
-    }
-    void RequestRemoveBook(){
+        System.out.println("start");
 
+        String bookName = requestDetails[1].replace("\0", "");
+        String author = requestDetails[2].replace("\0", "");
+        String genre = requestDetails[3].replace("\0", "");
+        double price = Double.parseDouble(requestDetails[4].replace("\0", ""));
+        int clientID = Integer.parseInt(requestDetails[5].replace("\0", ""));
+        String queryCheckBook = "SELECT bookid FROM books WHERE title=? AND author=?";
+        PreparedStatement preparedStatementCheckBook = con.prepareStatement(queryCheckBook);
+        preparedStatementCheckBook.setString(1, bookName);
+        preparedStatementCheckBook.setString(2, author);
+        ResultSet resCheckBook = preparedStatementCheckBook.executeQuery();
+
+        int bookID;
+        if (resCheckBook.next()) {
+            bookID = resCheckBook.getInt("bookid");
+            out.writeUTF("Book already exists with ID: " + bookID);
+        } else {
+            String queryInsertBook = "INSERT INTO books (title, author, genre, price) VALUES (?, ?, ?, ?)";
+            PreparedStatement preparedStatementInsertBook = con.prepareStatement(queryInsertBook, Statement.RETURN_GENERATED_KEYS);
+            preparedStatementInsertBook.setString(1, bookName);
+            preparedStatementInsertBook.setString(2, author);
+            preparedStatementInsertBook.setString(3, genre);
+            preparedStatementInsertBook.setDouble(4, price);
+            int rowsInserted = preparedStatementInsertBook.executeUpdate();
+
+            if (rowsInserted > 0) {
+                ResultSet generatedKeys = preparedStatementInsertBook.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    bookID = generatedKeys.getInt(1); // Retrieve the auto-generated book ID
+                    out.writeUTF("Book added with ID: " + bookID);
+                } else {
+                    throw new SQLException("Creating book failed, no ID obtained.");
+                }
+            } else {
+                throw new SQLException("Creating book failed, no rows affected.");
+            }
+        }
+        String queryInsertClientBook = "INSERT INTO client_books (clientid , bookid) VALUES (?, ?)";
+        PreparedStatement preparedStatementInsertClientBook = con.prepareStatement(queryInsertClientBook);
+        preparedStatementInsertClientBook.setInt(1, clientID);
+        preparedStatementInsertClientBook.setInt(2, bookID);
+        int rowsAffected = preparedStatementInsertClientBook.executeUpdate();
+        if (rowsAffected > 0) {
+            out.writeUTF("Client added book successfully");
+        } else {
+            out.writeUTF("Error in adding the book for the client");
+        }
     }
+
+
+    static void RequestRemoveBook(DataOutputStream out,String[] requestDetails) throws SQLException, IOException {
+        Connection con=db.getConnection();
+        String bookName = requestDetails[1].replace("\0", "");
+        int clientID = Integer.parseInt(requestDetails[2].replace("\0", ""));
+        String status = requestDetails[3].replace("\0", "");
+        String query1 = "SELECT bookid FROM books WHERE title=?";
+        PreparedStatement preparedStatement1 = con.prepareStatement(query1);
+        preparedStatement1.setString(1, bookName);
+        ResultSet res = preparedStatement1.executeQuery();
+        int bookID = -1;
+        if (res.next()){
+            bookID = res.getInt("bookid");
+        } else{
+            out.writeUTF("Book with title '" + bookName + "' not found.");
+        }
+        String query = "DELETE FROM client_books WHERE clientid =? AND bookid =? AND status =?";
+        PreparedStatement preparedStatement = con.prepareStatement(query);
+        preparedStatement.setInt(1, clientID);
+        preparedStatement.setInt(2, bookID);
+        preparedStatement.setString(3, status);
+        int rowsDeleted = preparedStatement.executeUpdate();
+        if(rowsDeleted > 0) {
+            System.out.println("book removed successfully");
+        }else{
+            System.out.println("you are not lending this book already");
+        }
+    }
+    static void AddReview(DataOutputStream out, String[] requestDetails) throws SQLException, IOException {
+        Connection con = db.getConnection();
+        int bookID = Integer.parseInt(requestDetails[1].replace("\0", ""));
+        int userID = Integer.parseInt(requestDetails[2].replace("\0", ""));
+        String reviewText = requestDetails[3].replace("\0", "");
+        int rating = Integer.parseInt(requestDetails[4].replace("\0", ""));
+        String query = "INSERT INTO Reviews (BookID, UserID, Rating, ReviewText, Timestamp) VALUES (?, ?, ?, ?, NOW())";
+        PreparedStatement preparedStatement = con.prepareStatement(query);
+        preparedStatement.setInt(1, bookID);
+        preparedStatement.setInt(2, userID);
+        preparedStatement.setInt(3, rating);
+        preparedStatement.setString(4, reviewText);
+        int rowsAffected = preparedStatement.executeUpdate();
+        if (rowsAffected > 0) {
+            out.writeUTF("Review added successfully");
+            updateTotalReviewForBook(bookID);
+        } else {
+            out.writeUTF("Error in adding the review");
+        }
+    }
+    static void updateTotalReviewForBook(int bookID) throws SQLException {
+        Connection con = db.getConnection();
+        String query = "SELECT AVG(Rating) AS AverageRating FROM reviews WHERE bookid = ?";
+        PreparedStatement preparedStatement = con.prepareStatement(query);
+        preparedStatement.setInt(1, bookID);
+        ResultSet resultSet = preparedStatement.executeQuery();
+
+        if (resultSet.next()) {
+            double averageRating = resultSet.getDouble("AverageRating");
+            String updateQuery = "UPDATE books SET TotalReview = ? WHERE bookid = ?";
+            PreparedStatement updateStatement = con.prepareStatement(updateQuery);
+            updateStatement.setDouble(1, averageRating);
+            updateStatement.setInt(2, bookID);
+            updateStatement.executeUpdate();
+        }
+    }
+
+
+
+
+
     void BorrowingRequest(){
         
     }
